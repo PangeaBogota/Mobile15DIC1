@@ -95,7 +95,7 @@
 <div ng-controller="pedidoController">
 	<div class="page-title">
 		<div class="title_left">
-            <h3 style="width: 200px">Nuevo Pedido</h3>
+            <h3 style="width: 200px">{{tituloPagina}}</h3>
         </div>
 	</div>
 
@@ -117,10 +117,10 @@
                                     <div class="form-group">
                                         <label for="rowid_tercero" class="control-label col-md-3 col-sm-3 col-xs-12">Tercero<span class="required">*</span></label>
                                         <div class="col-md-6 col-sm-6 col-xs-12">
-                                            <input  placeholder="Seleccionar Tercero" type="text" ng-model="Search" class="form-control col-md-7 col-xs-12"  ng-change="onChangeFiltroTercero()"  ></input>
+                                            <input  placeholder="Seleccionar Tercero" type="text" ng-model="Search" class="form-control col-md-7 col-xs-12 creado"  ng-change="onChangeFiltroTercero()"  ></input>
                                             <select  
                                                 ng-model="terceroSelected"  id="TerceroSelected" ng-options="partner as partner.cliente 
-                                                for partner in list_tercero | filter:{ cliente : Search }" class="form-control  sucursal" ng-change="onChangeTercero()" >
+                                                for partner in list_tercero | filter:{ cliente : Search }" class="form-control  sucursal creado" ng-change="onChangeTercero()" >
                                                 
                                             </select>
                                         </div>
@@ -130,10 +130,10 @@
                                     <div class="form-group">
                                         <label class="control-label col-md-3 col-sm-3 col-xs-12" >Sucursal Facturacion<span class="required">*</span></label>
                                         <div class="col-md-6 col-sm-6 col-xs-12">
-                                            <input  placeholder="Filtro Sucursal" type="text" ng-model="searchsuc1" class="form-control col-md-7 col-xs-12"   ></input>
+                                            <input  placeholder="Filtro Sucursal" type="text" ng-model="searchsuc1" class="form-control col-md-7 col-xs-12 creado"   ></input>
                                             <select  id="rowid_cliente_facturacion" required  on-ready="doStuff"
                                                 ng-model="sucursal"  ng-options="sucursal as sucursal.sucursal 
-                                                for sucursal in list_Sucursales | filter:searchsuc1" class="form-control sucursal
+                                                for sucursal in list_Sucursales | filter:searchsuc1" class="form-control sucursal creado
                                                   select2-select-00  full-width-fix select2-offscreen" ng-change="onChangeSucursal()" >
                                             </select>
                                         </div>
@@ -142,10 +142,10 @@
                                     <div class="form-group">
                                         <label class="control-label col-md-3 col-sm-3 col-xs-12" >Sucursal Despacho<span class="required">*</span></label>
                                         <div class="col-md-6 col-sm-6 col-xs-12">
-                                        <input  placeholder="Filtro Sucursal" type="text" ng-model="searchsuc2" class="form-control col-md-7 col-xs-12"   ></input>
+                                        <input  placeholder="Filtro Sucursal" type="text" ng-model="searchsuc2" class="form-control col-md-7 col-xs-12 creado"   ></input>
                                             <select  id="rowid_cliente_despacho" required style="max-width:100%" 
                                                         ng-model="sucursalDespacho"  ng-options="sucursal as sucursal.sucursal 
-                                                        for sucursal in list_Sucursales | filter:searchsuc2" class="form-control sucursal"  ng-change="onChangeSucursalDespacho()" >
+                                                        for sucursal in list_Sucursales | filter:searchsuc2" class="form-control sucursal creado"  ng-change="onChangeSucursalDespacho()" >
                                             </select>
                                         </div>
                                     </div>
@@ -191,7 +191,7 @@
                                         <div class="col-md-6 col-sm-6 col-xs-12">
                                             <select  id="rowid_lista_precios" 
                                                         ng-model="listaPrecios"  ng-options="listprecios as listprecios.concatenado 
-                                                        for listprecios in list_precios " class="form-control"  required>
+                                                        for listprecios in list_precios " class="form-control creado"  required>
                                             </select>
                                         </div>
                                     </div>
@@ -201,7 +201,7 @@
                                         <div class="col-md-6 col-sm-6 col-xs-12">
                                             <select id="id_punto_envio"  required
                                                         ng-model="puntoEnvio"  ng-options="puntoenvio as puntoenvio.concatenado 
-                                                        for puntoenvio in list_puntoEnvio " class="form-control" >
+                                                        for puntoenvio in list_puntoEnvio " class="form-control creado" >
                                             </select>
                                         </div>
                                     </div>
@@ -229,7 +229,7 @@
                                     </div>
                                 </div>
                                 <div class="form-actions ">
-                                    <button type="submit" class="btn btn-success pull-right" ng-disabled="form_encabezado.$invalid"  ng-click="ValidacionCabezera();focusInput=true;">Continuar</button>
+                                    <button type="submit" class="btn btn-success pull-right"   ng-click="ValidacionCabezera();focusInput=true;">Continuar</button>
                                 </div>
                                 </div>
                                 

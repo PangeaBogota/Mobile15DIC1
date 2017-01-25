@@ -7,8 +7,6 @@ var app_angular = angular.module('PedidosOnline');
 //CONTROLADOR DEL MOULO DE VENTAS
 app_angular.controller("pedidoController",['Conexion','$scope','$location','$http','$routeParams','$timeout',function (Conexion,$scope,$location,$http,$routeParams,$timeout) {
 	$scope.ejemplovista=[];
-	
-	//CRUD.select(vista2,function(elem){$scope.ejemplovista.push(elem)});
 	$scope.sessiondate=JSON.parse(window.localStorage.getItem("CUR_USER"));
 	$scope.validacion=0;
 	$scope.item;
@@ -46,21 +44,69 @@ app_angular.controller("pedidoController",['Conexion','$scope','$location','$htt
 	$scope.searchsuc2='';
 	$scope.filter=[];
 	$scope.criterio=[];
-    $scope.terceroDeTercero=$routeParams.personId;
+    $scope.Parametro=$routeParams.personId;
+    $scope.tituloPagina='Nuevo Pedido';
+    $scope.editarpedido=false;
 	CRUD.select("select identificacion ||'-'|| razonsocial as  cliente,* from erp_terceros  order by razonsocial",
-		function(elem)
+	function(elem)
+	{
+		$scope.list_tercero.push(elem);
+		if ($scope.Parametro!=undefined   && elem.rowid==$scope.Parametro) 
 		{
-			$scope.list_tercero.push(elem);
-			if ($scope.terceroDeTercero!=undefined   && elem.rowid==$scope.terceroDeTercero) 
-			{
-				$scope.terceroSelected=elem
-				
-			}
-			
-		});
+			$scope.terceroSelected=elem;
+		}
+	});
+	var pedido=$routeParams.personId;
+	if (pedido==undefined) {
+		pedido='';
+	}
+	if (pedido.includes('|')) {
+		pedido=$scope.Parametro.split('|');
+	}
 	
+	if (pedido.length==2) {
+		$('.creado').attr("disabled","disabled") 
+		
+		$scope.tituloPagina='Pedido #'+pedido[1];
+		$scope.editarpedido=true;
+		CRUD.select("select pe.*,su.rowid_tercero as tercero,maestro.erp_id_maestro from t_pedidos pe inner join erp_terceros_sucursales su on pe.rowid_cliente_facturacion=su.rowid inner join erp_entidades_master  maestro  on pe.rowid_lista_precios=maestro.rowid where pe.rowid='"+pedido[1]+"'",function(elem){
+			CRUD.select("select*from t_pedidos where rowid='"+pedido[1]+"'",function(pedidoD){
+				$scope.pedidos=pedidoD;
+				$scope.date=$scope.pedidos.fecha_solicitud;
+				$scope.dateEntrega=$scope.pedidos.fecha_entrega;
+				$("#fecha_entrega").val($scope.pedidos.fecha_entrega);
+				$("#fecha_solicitud").val($scope.pedidos.fecha_solicitud);
+				$scope.list_tercero=[];
+				CRUD.select("select identificacion ||'-'|| razonsocial as  cliente,* from erp_terceros order by razonsocial",function(tercero){
+					$scope.list_tercero.push(tercero);
+					if (tercero.rowid==elem.tercero) {
+						$scope.terceroSelected=tercero;
+						CRUD.select("select  codigo_sucursal||'-'||nombre_sucursal as sucursal,*from erp_terceros_sucursales where rowid_tercero='"+tercero.rowid+"'",function(sucursal){
+							$scope.list_Sucursales.push(sucursal)
+							if ($scope.pedidos.rowid_cliente_facturacion==sucursal.rowid) {
+								$scope.sucursal=sucursal;
+								$scope.onChangeSucursal();
+							}
+							if ($scope.pedidos.rowid_cliente_despacho==sucursal.rowid) {
+								$scope.sucursalDespacho=sucursal;
+								$scope.onChangeSucursalDespacho();
+							}
+						})
+					}
+				})
+				CRUD.select("select vw.*,tpd.cantidad as cantidaddetalle from vw_items_precios vw inner join  t_pedidos_detalle tpd on tpd.rowid_item=vw.rowid_item where tpd.rowid_pedido='"+pedido[1]+"' and vw.rowid="+$scope.pedidos.rowid_lista_precios+"  ",function(detallePedido){
+					$scope.item=detallePedido;
+					$scope.item.cantidad=detallePedido.cantidaddetalle;
+					$scope.item.iva=$scope.item.precio*$scope.item.impuesto_porcentaje/100;
+					$scope.item.valorTotal=0;
+					$scope.itemsAgregadosPedido.unshift($scope.item);
+					$scope.CalcularCantidadValorTotal();
+				});
+			});
+		});
+	}
 	$scope.onChangeListaPrecios=function(){
-
+		ProcesadoShow();
 		if ($scope.pedidos.rowid_lista_precios==undefined) {$scope.list_items=[];return}
 		$scope.list_items=[];
 		var count='';
@@ -77,16 +123,16 @@ app_angular.controller("pedidoController",['Conexion','$scope','$location','$htt
 		else {
 			vista="select*from vw_items_precios  where  rowid="+$scope.pedidos.rowid_lista_precios+"  order by rowid LIMIT 100 ";
 		}
-		CRUD.selectAllinOne(vista,function(elem){$scope.list_items=elem;Mensajes('Busqueda Realizada','success','');});
+		CRUD.selectAllinOne(vista,
+		function(elem){
+			$scope.list_items=elem;
+			Mensajes('Busqueda Realizada','success','');
+			ProcesadoHiden();
+		});
 	}
 	$scope.onChangeFiltro=function()
 	{
 		if ($scope.SearchItem=='') {$scope.item=[]}
-	}
-	$scope.focusCantidad=function(){
-		$('#cantidadBase').focus();
-		$('#cantidadBase').click();
-		 $('#cantidadBase').trigger('click');
 	}
 	$scope.onGetFiltro=function()
 	{
@@ -160,21 +206,16 @@ app_angular.controller("pedidoController",['Conexion','$scope','$location','$htt
 		$scope.sucursalDespacho=[];
 		$scope.ciudad='';
 		$scope.searchsuc1='';
-	$scope.searchsuc2='';
+		$scope.searchsuc2='';
 		$scope.ciudadSucursal=[];
 		$scope.list_items=[];
 		$scope.filter=[];
 		$scope.list_precios=[];
 		CRUD.select("select  s.codigo_sucursal||'-'||s.nombre_sucursal  sucursal,s.*,e.erp_descripcion from erp_terceros_sucursales s left join erp_entidades_master e on e.id_tipo_maestro='CRITERIO_CLASIFICACION' and e.erp_id_maestro=replace(s.id_criterio_clasificacion,' ','') where s.rowid_tercero = '"+$scope.terceroSelected.rowid+"'   order by s.codigo_sucursal ",function(elem){
-			debugger
 			if (elem.erp_descripcion!=null) {
 				elem.sucursal+=" - "+elem.erp_descripcion
 			}
 			$scope.list_Sucursales.push(elem)})
-
-		//CRUD.selectParametro('erp_terceros_sucursales','rowid_tercero',$scope.terceroSelected.rowid,function(elem){$scope.list_Sucursales.push(elem)});
-		//CRUD.selectParametro('erp_terceros_punto_envio','rowid_tercero',$scope.terceroSelected.rowid,function(elem){$scope.list_puntoEnvio.push(elem)});	''
-		//$scope.pedidos.rowid_tercero=$scope.terceroSelected.rowid
 	}
 	CRUD.select("select count(*) as cantidad from erp_entidades_master ",function(elem){console.log(elem.cantidad)})
 	$scope.onChangeSucursal=function(){
@@ -189,30 +230,26 @@ app_angular.controller("pedidoController",['Conexion','$scope','$location','$htt
 			function(elem){
 				if (elem.dataValidacion==0) {
 					CRUD.select("select erp_id_maestro||'-'||erp_descripcion as concatenado , * from erp_entidades_master where erp_id_maestro = '001' and id_tipo_maestro='LISTA_PRECIOS'",function(elem){
-						
-						$scope.list_precios.push(elem);$scope.listaPrecios=$scope.list_precios[0];$scope.pedidos.rowid_lista_precios=$scope.listaPrecios.rowid;//$scope.onChangeListaPrecios();
+						$scope.list_precios.push(elem);$scope.listaPrecios=$scope.list_precios[0];$scope.pedidos.rowid_lista_precios=$scope.listaPrecios.rowid;
 					})
 				}
 				else
 				{
-					$scope.list_precios.push(elem);$scope.listaPrecios=$scope.list_precios[0];$scope.pedidos.rowid_lista_precios=$scope.listaPrecios.rowid;//$scope.onChangeListaPrecios();		
+					$scope.list_precios.push(elem);$scope.listaPrecios=$scope.list_precios[0];$scope.pedidos.rowid_lista_precios=$scope.listaPrecios.rowid;
 				}
 				
 			});
-		//CRUD.selectParametro('erp_entidades_master','erp_id_maestro',$scope.sucursal.id_lista_precios,function(elem){$scope.list_precios.push(elem)});
 		$scope.pedidos.rowid_cliente_facturacion=$scope.sucursal.rowid;
 	}
 
 	$scope.onChangeSucursalDespacho=function()
 	{
-		//console.log("select  *from erp_terceros_punto_envio where rowid_tercero = '"+$scope.terceroSelected.rowid+"'  and  codigo_sucursal = '"+$scope.sucursalDespacho.codigo_sucursal+"'   order by rowid  LIMIT 1  ");
 		$scope.pedidos.rowid_cliente_despacho=$scope.sucursalDespacho.rowid;
 		CRUD.select("select pais.nombre||'-'||ciudad.nombre as nombre from m_localizacion  pais inner join m_localizacion ciudad  on ciudad.id_pais=pais.id_pais and pais.id_depto='' and pais.id_ciudad=''  where ciudad.id_ciudad='"+$scope.sucursalDespacho.id_ciudad+"' and ciudad.id_depto='"+$scope.sucursalDespacho.id_depto+"' and ciudad.id_pais='"+$scope.sucursalDespacho.id_pais+"'",
 			function(elem){$scope.ciudadSucursal=elem});
 		CRUD.select("select id_punto_envio||'-'||nombre_punto_envio as concatenado, *from erp_terceros_punto_envio where rowid_tercero = '"+$scope.terceroSelected.rowid+"'  and  codigo_sucursal = '"+$scope.sucursalDespacho.codigo_sucursal+"'   order by rowid  LIMIT 1  ",
 			function(elem){$scope.list_puntoEnvio.push(elem);$scope.pedidos.id_punto_envio=elem.rowid;$scope.puntoEnvio=elem});
 	}
-
 	$scope.finalizarPedido=function(){
 		if($scope.itemsAgregadosPedido.length==0)
 		{
@@ -229,8 +266,7 @@ app_angular.controller("pedidoController",['Conexion','$scope','$location','$htt
 			$scope.confimar.salir=true;
 			window.location.href = '#/ventas/pedidos_ingresados';
 			ProcesadoHiden();
-		},1200)
-		
+		},1500)
 	}
 	$scope.onChangeFiltroTercero=function(){
 		if ($scope.Search=='') {$scope.terceroSelected=[];}
@@ -257,24 +293,22 @@ app_angular.controller("pedidoController",['Conexion','$scope','$location','$htt
 			Mensajes('Agrege una Cantidad al item','error','');
 			return
 		}
-		if ($scope.itemsAgregadosPedido.indexOf($scope.item) == -1) {
-			$scope.item.cantidad=$scope.cantidadBase;
-			$scope.item.iva=$scope.item.precio*$scope.item.impuesto_porcentaje/100;
-			$scope.item.valorTotal=0;
-			$scope.itemsAgregadosPedido.unshift($scope.item);
-			Mensajes('Item Agregado','success','');
-			$scope.item=[];
-			$scope.SearchItem='';
-			$scope.cantidadBase='';
-			$scope.CalcularCantidadValorTotal();
-			$scope.filter=[];
-			$scope.list_items=[];
+		for (var i = 0; i < $scope.itemsAgregadosPedido.length; i++) {
+			if ( $scope.itemsAgregadosPedido[i].rowid_item==$scope.item.rowid_item) {
+				$scope.itemsAgregadosPedido.splice(i, 1);
+			}
 		}
-		else
-		{
-			Mensajes('El Item ya existe en la lista','error','');
-		}
-		
+		$scope.item.cantidad=$scope.cantidadBase;
+		$scope.item.iva=$scope.item.precio*$scope.item.impuesto_porcentaje/100;
+		$scope.item.valorTotal=0;
+		$scope.itemsAgregadosPedido.unshift($scope.item);
+		Mensajes('Item Agregado','success','');
+		$scope.item=[];
+		$scope.SearchItem='';
+		$scope.cantidadBase='';
+		$scope.CalcularCantidadValorTotal();
+		$scope.filter=[];
+		$scope.list_items=[];
 	}
 	$scope.CalcularCantidadValorTotal=function(){
 		$scope.valortotal=0;
@@ -301,21 +335,25 @@ app_angular.controller("pedidoController",['Conexion','$scope','$location','$htt
 		$scope.pedidoDetalles.total=$scope.valortotal+$scope.ivatotal;
 	}
 	$scope.delete = function (index) {
-		console.log(index)
     	$scope.itemsAgregadosPedido.splice(index, 1);
     	$scope.CalcularCantidadValorTotal();
 	}
 	$scope.guardarDetalle=function(){
-		
+		if ($scope.editarpedido==true) {
+			CRUD.Updatedynamic("delete from t_pedidos_detalle  where rowid_pedido='"+$scope.pedidos.rowid+"'");	
+		}
+		CRUD.select('select max(rowid) as rowid from t_pedidos',function(elem){
 		angular.forEach($scope.itemsAgregadosPedido,function(value,key){
-			CRUD.select('select max(rowid) as rowid from t_pedidos',function(elem){
-				$scope.p1=[];
-				$scope.p1.push(elem);
-				$scope.ultimoseleccionado=[];
-				$scope.ultimoseleccionado=$scope.p1[0];
 				$scope.detalle=[];
+				debugger
 				$scope.detalle.rowid_item=value.rowid_item;
-				$scope.detalle.rowid_pedido=$scope.pedidos.rowid;
+				if ($scope.editarpedido==true) {
+					$scope.detalle.rowid_pedido=$scope.pedidos.rowid;	
+				}
+				else
+				{
+					$scope.detalle.rowid_pedido=elem.rowid;
+				}
 				$scope.detalle.linea_descripcion=value.descripcion;
 				$scope.detalle.id_unidad=value.id_unidad;
 				$scope.detalle.cantidad=value.cantidad;
@@ -332,45 +370,43 @@ app_angular.controller("pedidoController",['Conexion','$scope','$location','$htt
 				$scope.detalle.fechacreacion=$scope.CurrentDate();
 				CRUD.insert('t_pedidos_detalle',$scope.detalle);
 			})
-			
+		//CRUD.select('SELECT  SUM (valor_base)  as total,SUM (cantidad)  as cantidad FROM  t_pedidos_detalle  where rowid_pedido='+$scope.pedidos.rowid+'',function(elem){$scope.pedidoDetalles.push(elem)});
+
 		})
-		
-		CRUD.select('SELECT  SUM (valor_base)  as total,SUM (cantidad)  as cantidad FROM  t_pedidos_detalle  where rowid_pedido='+$scope.pedidos.rowid+'',function(elem){$scope.pedidoDetalles.push(elem)});
 	}
 	$scope.actualizarPrecio=function(){
 		$scope.CalcularCantidadValorTotal();
 	}
 	$scope.guardarCabezera=function(){
-		CRUD.select('select max(rowid) as rowid from t_pedidos',function(elem){$scope.ultimoRegistro.push(elem);
-
-			$scope.ultimoRegistroseleccionado=$scope.ultimoRegistro[0];
-			$scope.pedidos.rowid=$scope.ultimoRegistroseleccionado.rowid+1;
-			$scope.pedido_detalle.rowid_pedido=$scope.pedidos.rowid;
-			$scope.pedidos.modulo_creacion='MOBILE';
-			$scope.pedidos.valor_total=$scope.pedidoDetalles.total;
-			$scope.pedidos.valor_base=$scope.pedidoDetalles.neto;
-			$scope.pedidos.usuariocreacion=$scope.sessiondate.nombre_usuario;
-			$scope.pedidos.rowid_empresa=4;
-			$scope.pedidos.id_cia=1;
-			$scope.pedidos.fecha_pedido=$scope.pedidos.fecha_solicitud;
-			$scope.pedidos.fecha_entrega=$scope.pedidos.fecha_solicitud;
-			$scope.pedidos.valor_impuesto=$scope.pedidoDetalles.iva;
-			$scope.pedidos.valor_descuento=0;
-			$scope.pedidos.id_estado=101;
-			$scope.pedidos.ind_estado_erp=0;
-			$scope.pedidos.valor_facturado=0;
-			$scope.pedidos.sincronizado='false';
-			$scope.pedidos.estado_sincronizacion=0;
-			$scope.pedidos.key_user=$scope.sessiondate.key;
-			CRUD.insert('t_pedidos',$scope.pedidos)
-		})
+		if ($scope.pedidos.rowid>0) {
+			CRUD.Updatedynamic("delete from t_pedidos  where rowid='"+$scope.pedidos.rowid+"'");	
+		}
+		$scope.pedido_detalle.rowid_pedido=$scope.pedidos.rowid;
+		$scope.pedidos.modulo_creacion='MOBILE';
+		$scope.pedidos.valor_total=$scope.pedidoDetalles.total;
+		$scope.pedidos.valor_base=$scope.pedidoDetalles.neto;
+		$scope.pedidos.usuariocreacion=$scope.sessiondate.nombre_usuario;
+		$scope.pedidos.rowid_empresa=4;
+		$scope.pedidos.id_cia=1;
+		debugger
+		$scope.pedidos.fecha_solicitud=$scope.pedidos.fecha_solicitud;
+		$scope.pedidos.fecha_pedido=$scope.pedidos.fecha_solicitud;
+		$scope.pedidos.fecha_entrega=$scope.pedidos.fecha_entrega;
+		$scope.pedidos.valor_impuesto=$scope.pedidoDetalles.iva;
+		$scope.pedidos.valor_descuento=0;
+		$scope.pedidos.id_estado=101;
+		$scope.pedidos.ind_estado_erp=0;
+		$scope.pedidos.valor_facturado=0;
+		$scope.pedidos.sincronizado='false';
+		$scope.pedidos.estado_sincronizacion=0;
+		$scope.pedidos.key_user=$scope.sessiondate.key;
+		CRUD.insert('t_pedidos',$scope.pedidos)
 	}
 	$scope.confimar=[];
 	$scope.confimar.next=[]
 	$scope.confimar.current=[]
 	$scope.confimar.salir=false
 	$scope.onConfirmarSalida=function(accion){
-		debugger
 		if (accion=='salir') {
 			var a='';
 			if ($scope.confimar.next.params.modulo==undefined) {
@@ -379,61 +415,74 @@ app_angular.controller("pedidoController",['Conexion','$scope','$location','$htt
 			else{
 				a='/'+$scope.confimar.next.params.modulo+'/'+$scope.confimar.next.params.url;
 			}
-
 			$timeout(function () {
 		        $location.path(a)
 		    }, 100);
-			
 		}else if (accion=='permanecer') {
 			$scope.confimar.salir=false
 		}
 	}
 	$scope.$on('$routeChangeStart', function(event,next, current) { 
-		debugger
 		if ($scope.confimar.salir==false) {
 			$scope.confimar.next=next;
-			  $scope.confimar.current=current
-			  $scope.confimar.salir=true;
-			  event.preventDefault();
-			  $('#confirmacion').click();
+			$scope.confimar.current=current
+			$scope.confimar.salir=true;
+			event.preventDefault();
+			$('#confirmacion').click();
 		}
-		
-		  
-	 });
+	});
 	$scope.validacionInsert=function()
 	{
 		$scope.pedidos.fecha_entrega=$scope.SelectedDate($scope.dateEntrega);
 		if ($scope.pedidos.rowid_cliente_facturacion =='' || $scope.pedidos.rowid_cliente_facturacion==undefined) {
-			Mensajes("Verifique Que Todos lo campos esten Llenos","error","")
-			return
+			Mensajes("Verifique Que Todos lo campos esten Llenos","error","");
+			return;
 		}
 		if ($scope.pedidos.rowid_cliente_despacho =='' || $scope.pedidos.rowid_cliente_despacho==undefined) {
-			Mensajes("Verifique Que Todos lo campos esten Llenos","error","")
-			return
+			Mensajes("Verifique Que Todos lo campos esten Llenos","error","");
+			return;
 		}
 		if ($scope.pedidos.rowid_lista_precios =='' || $scope.pedidos.rowid_lista_precios==undefined) {
-			Mensajes("Verifique Que Todos lo campos esten Llenos","error","")
-			return
+			Mensajes("Verifique Que Todos lo campos esten Llenos","error","");
+			return;
 		}
 		if ($scope.pedidos.fecha_solicitud =='' || $scope.pedidos.fecha_solicitud==undefined) {
-			//$scope.pedidos.fecha_solicitud =$scope.pedidos.fecha_entrega
-			Mensajes("Verifique Que Todos lo campos esten Llenos","error","")
-			return
+			Mensajes("Verifique Que Todos lo campos esten Llenos","error","");
+			return;
 		}
 		if ($scope.pedidos.fecha_entrega =='' || $scope.pedidos.fecha_entrega==undefined) {
-			//$scope.pedidos.fecha_solicitud =$scope.pedidos.fecha_entrega
-			Mensajes("Verifique Que Todos lo campos esten Llenos","error","")
-			return
+			Mensajes("Verifique Que Todos lo campos esten Llenos","error","");
+			return;
 		}
 		if($scope.itemsAgregadosPedido.length==0)
 		{
 			Mensajes('Debe Seleccionar al menos un item de la lista','error','');
-			return
+			return;
 		}
-		$scope.finalizarPedido()
+		$scope.finalizarPedido();
 	}
 	$scope.ValidacionCabezera=function()
     {
+    	if ($scope.pedidos.rowid_cliente_facturacion =='' || $scope.pedidos.rowid_cliente_facturacion==undefined) {
+			Mensajes("Verifique Que Todos lo campos esten Llenos","error","");
+			return;
+		}
+		if ($scope.pedidos.rowid_cliente_despacho =='' || $scope.pedidos.rowid_cliente_despacho==undefined) {
+			Mensajes("Verifique Que Todos lo campos esten Llenos","error","");
+			return;
+		}
+		if ($scope.pedidos.rowid_lista_precios =='' || $scope.pedidos.rowid_lista_precios==undefined) {
+			Mensajes("Verifique Que Todos lo campos esten Llenos","error","");
+			return;
+		}
+		if ($scope.pedidos.fecha_solicitud =='' || $scope.pedidos.fecha_solicitud==undefined) {
+			Mensajes("Verifique Que Todos lo campos esten Llenos","error","");
+			return;
+		}
+		if ($scope.pedidos.fecha_entrega =='' || $scope.pedidos.fecha_entrega==undefined) {
+			Mensajes("Verifique Que Todos lo campos esten Llenos","error","");
+			return;
+		}
     	$scope.CambiarTab('3','atras');
     	$scope.hasfocus=true;
     }
@@ -458,17 +507,12 @@ app_angular.controller("pedidoController",['Conexion','$scope','$location','$htt
 
         angular.element('ul.tabs li').removeClass('active');
         angular.element('.tab-pane').removeClass('active');
-
         angular.element("ul.tabs").find("[data-tab='" + $scope.tab_id + "']").toggleClass('active');
         angular.element("#" + $scope.tab_id).toggleClass('active');
     };
     angular.element('#ui-id-1').mouseover(function (){
         angular.element('#ui-id-1').show();
     });
-
-
-	
-
 }]);
 
 app_angular.controller("PedidosController",['Conexion','$scope',function (Conexion,$scope) {
@@ -478,7 +522,6 @@ app_angular.controller("PedidosController",['Conexion','$scope',function (Conexi
 	$scope.detallespedido=[];
     CRUD.select('select distinct pedidos.valor_impuesto,pedidos.fecha_solicitud,pedidos.sincronizado, pedidos.rowid as rowidpedido,terceros.razonsocial,sucursal.nombre_sucursal,pedidos.numpedido_erp,punto_envio.nombre_punto_envio,pedidos.valor_total,detalle.rowid_pedido,count(detalle.rowid_pedido) cantidaddetalles,sum(detalle.cantidad) as cantidadproductos from  t_pedidos pedidos inner join erp_terceros_sucursales sucursal on sucursal.rowid=pedidos.rowid_cliente_facturacion  inner join erp_terceros terceros on terceros.rowid=sucursal.rowid_tercero  left  join t_pedidos_detalle detalle on detalle.rowid_pedido=pedidos.rowid left join erp_terceros_punto_envio punto_envio on punto_envio.rowid=pedidos.id_punto_envio group by  pedidos.fecha_solicitud,detalle.rowid_pedido,pedidos.rowid,terceros.razonsocial,sucursal.nombre_sucursal,punto_envio.nombre_punto_envio,pedidos.valor_total order by pedidos.rowid desc    LIMIT 50',function(elem) {$scope.pedidos.push(elem)});
     CRUD.select("select count(*) as cantidad",function(elem){
-    	
     	if (elem.cantidad==0) {
     		$scope.validacion=true;
     	}
@@ -486,33 +529,26 @@ app_angular.controller("PedidosController",['Conexion','$scope',function (Conexi
 	$scope.ConsultarDatos =function(pedido){
 		$scope.detallespedido=[];
 		$scope.pedidoSeleccionado=pedido;
-
 		CRUD.select('select items.item_referencia, items.item_descripcion, detalle.cantidad, detalle.precio_unitario, detalle.valor_base,detalle.valor_total_linea,detalle.valor_impuesto from t_pedidos pedido left join t_pedidos_detalle detalle on pedido.rowid = detalle.rowid_pedido inner join erp_items items on Detalle.rowid_item = items.rowid where pedido.rowid='+pedido.rowidpedido+'',
 		function(ele){$scope.detallespedido.push(ele);})
 		
 	}
-	
 	$scope.Refrescar =function(){
     	CRUD.selectAll('t_pedidos',function(elem) {$scope.pedidos.push(elem)});
 		$scope.Search = '';
 		
 	}
-	
 	angular.element('ul.tabs li').click(function () {
-
         var tab_id = angular.element(this).find('a').data('tab');
         angular.element('ul.tabs li').removeClass('active');
         angular.element('.tab-pane').removeClass('active');
         angular.element(this).toggleClass('active');
         angular.element("#" + tab_id).toggleClass('active');
     });
-	
 	$scope.abrirModal=function(pedido){
 		$('#pedidoOpenModal').click();
 		$scope.ConsultarDatos(pedido);
 	}
-
-	
 	$scope.CambiarTab = function (tab_actual, accion) {
         var tab_id = null;
 
@@ -528,6 +564,4 @@ app_angular.controller("PedidosController",['Conexion','$scope',function (Conexi
     angular.element('#ui-id-1').mouseover(function (){
         angular.element('#ui-id-1').show();
     });
-	
-
 }]);

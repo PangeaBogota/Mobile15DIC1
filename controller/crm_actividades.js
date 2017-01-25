@@ -170,7 +170,7 @@ app_angular.controller("actividadesController",['Conexion','$scope', '$routePara
             $('#fc_ViewEvent').click();
             $scope.actividadesDia=[];
 			$scope.actividad=[];
-			CRUD.select("select * from vw_actividades_usuario1 where rowid= '"+calEvent.id+"' ",function(elem){
+			CRUD.select("select * from vw_actividades_usuario where rowid= '"+calEvent.id+"' ",function(elem){
 				if (elem.canal=='null') 
 				{
 					elem.condicion=false;

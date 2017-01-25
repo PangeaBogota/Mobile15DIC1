@@ -436,8 +436,10 @@ app_angular.service('Factory', function ($webSql) {
 
     db.createTable('t_pedidos', {
         "rowid": {
-            "type": "INTEGER",
-            "null": "NULL"
+             "type": "INTEGER",
+            "null": "NOT NULL",
+            "primary": true,
+            "auto_increment": true 
         },
         "rowid_empresa": {
             "type": "INTEGER",
